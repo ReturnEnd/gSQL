@@ -27,8 +27,12 @@ local queryStr = 'SELECT * FROM users WHERE steamid = {{steamid}}'
 local parameters = {
     ['steamid'] = 'STEAM_0:0:0' -- Note that the key match with the name of the parameter in queryStr
 }
-local function callback(...)
-    -- callback code, where you'll get datas, and query status
+local function callback(status, message, data)
+    if status then
+        PrintTable(data)
+    else
+        print("Error upon SQL query :" .. message)
+    end
 end
 -- Then we can do our query
 object:query(queryStr, callback, parameters)
