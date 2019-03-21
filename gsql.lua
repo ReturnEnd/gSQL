@@ -16,10 +16,14 @@ gsql = gsql or {
     affectedRows = nil
 }
 
---[[----------------------------------------------------------
-    gsql constructor
-    Creates the new gsql object
-------------------------------------------------------------]]
+--- Class constructor function. Creates a new gSQL object, and a new MySQLOO connection
+-- @param obj table : the object that'll be used after this method
+-- @param dbhost string : host name of the database
+-- @param dbname string : database name
+-- @param dbuser string : database user that'll be used to get datas from the database
+-- @param dbpass string : database user's password
+-- @param port number : port number on which the database is hosted
+-- @return gsql : a gsql object
 function gsql:new(obj, dbhost, dbname, dbuser, dbpass, port)
     obj = obj or {}
     port = port or 3306
@@ -40,20 +44,21 @@ function gsql:new(obj, dbhost, dbname, dbuser, dbpass, port)
     return self
 end
 
---[[----------------------------------------------------------
-    HELPER function : parse parameters in the query
-    gsql.replace([string] queryStr, [table] parameters)
-------------------------------------------------------------]]
+--- Helper function that replace parameters found in a string by the parameter itself.
+-- @param queryStr string : the string that'll be affected by this function
+-- @param name string : the name of the parameter which have to be found and replaced
+-- @param value any : the value of the parameter
+-- @return string : the new string, with parameters values instead of names
 function gsql.replace(queryStr, name, value)
     local pattern = '{{' .. name .. '}}'
     return string.gsub(queryStr, pattern, value)
 end
 
---[[----------------------------------------------------------
-    gsql:query([string] query, [function] callback, [, [table] parameters])
-    function callback([bool]status, [string] reason, [, [table] data])
-    Returns [table] data OR [bool] false
-------------------------------------------------------------]]
+--- Set a new Query object and start the query
+-- @param queryStr string : A SQL query string
+-- @param callback function : Function that'll be called when the query finished
+-- @param paramaters table : A table containing all (optionnal) parameters
+-- @return void
 function gsql:query(queryStr, callback, parameters)
     if (queryStr == nil) then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
     parameters = parameters or {}
@@ -78,11 +83,10 @@ function gsql:query(queryStr, callback, parameters)
     self.affectedRows = query:affectedRows()
 end
 
---[[----------------------------------------------------------
-    Add a prepared query to the prepared queries table
-    gsql:prepare([string] query)
-    Returns [number] index of the prepared query
-------------------------------------------------------------]]
+--- Add a new PreparedQuery object to the "prepared" table
+-- @param queryStr string : A SQL query string
+-- @return number : index of this object in the "prepared" table
+-- @see gsql:execute
 function gsql:prepare(queryStr)
     if (queryStr == nil) then
         file.Append('gsql_logs.txt', '[gsql][prepare] : Argument \'queryStr\' is missing. ')
@@ -96,11 +100,9 @@ function gsql:prepare(queryStr)
     return #self.prepared + 1
 end
 
---[[----------------------------------------------------------
-    Delete a prepared query from the prepared queries table
-    gsql:delete([number] index)
-    Returns [bool] status of deleting
-------------------------------------------------------------]]
+--- Delete a PreparedQuery object from the "prepared" table
+-- @param index number : index of this object in the "prepared" table
+-- @return bool : the status of this deletion
 function gsql:delete(index)
     index = index or 1 -- First prepared query by default
     if (type(index) ~= 'number') then
@@ -117,13 +119,12 @@ function gsql:delete(index)
     return true
 end
 
---[[----------------------------------------------------------
-    Execute all prepared queries by their order of preparation
-    Delete the executed prepared query
-    gsql:execute([number] index, [function] callback, [table] parameters)
-    function callback([bool]status, [string] reason, [, [table] data])
-    Returns [table] data OR [bool] false
-------------------------------------------------------------]]
+--- Execute all prepared queries ordered by their index in the "prepared" table
+-- Call the callback function when it finished
+-- @param index number : index of this object in the "prepared" table
+-- @param callback function : function called when the PreparedQuery finished
+-- @param parameters table : table of all parameters that'll be added to the prepared query
+-- @return void
 function gsql:execute(index, callback, parameters)
     parameters = parameters or {}
     local i = 1
