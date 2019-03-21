@@ -38,7 +38,7 @@ end
 object:query(queryStr, callback, parameters)
 ```
 #### Doing a prepared request
-Prepared queries are like simple queries, excepts that they are compiled before passing any argument on them. You can then bind parameters to these queries, to get your data. For more informations about prepared queries, please visit : (Prepared statement (Wikipedia.com))[https://en.wikipedia.org/wiki/Prepared_statement]
+Prepared queries are like simple queries, excepts that they are compiled before passing any argument on them. You can then bind parameters to these queries, to get your data. For more informations about prepared queries, please visit : [Prepared statement (Wikipedia.com)](https://en.wikipedia.org/wiki/Prepared_statement)
 In **gSQL**, you can do prepared queries as following : 
 ```lua
 local queryStr = "INSERT INTO messages (author, content, date_time) VALUES(?, ?, ?)"
