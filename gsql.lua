@@ -72,7 +72,7 @@ function gsql:query(queryStr, callback, parameters)
     end
     self.queries[i].onError = function(query, err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
-        callback(false, 'error')
+        callback(false, 'error :' .. err)
     end
     self.queries[i]:start()
     self.affectedRows = query:affectedRows()
