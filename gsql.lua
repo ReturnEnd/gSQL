@@ -51,6 +51,7 @@ end
 
 --[[----------------------------------------------------------
     gsql:query([string] query, [function] callback, [, [table] parameters])
+    function callback([bool]status, [string] reason, [, [table] data])
     Returns [table] data OR [bool] false
 ------------------------------------------------------------]]
 function gsql:query(queryStr, callback, parameters)
@@ -120,6 +121,7 @@ end
     Execute all prepared queries by their order of preparation
     Delete the executed prepared query
     gsql:execute([number] index, [function] callback, [table] parameters)
+    function callback([bool]status, [string] reason, [, [table] data])
     Returns [table] data OR [bool] false
 ------------------------------------------------------------]]
 function gsql:execute(index, callback, parameters)
