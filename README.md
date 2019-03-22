@@ -51,3 +51,9 @@ local index = object:prepare(queryStr) -- This add a new PreparedQuery object, w
 -- Then, we can execute our prepared query, by giving some parameters
 object:execute(index, callback, parameters)
 ```
+#### Deleting a prepared request
+**gSQL** allow you to delete prepared query you made. You have to precise the index of the prepared query you want to delete (given by `gsql:prepare`) :
+```lua
+-- This will delete the prepared query number index
+object:delete(index)
+```
