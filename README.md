@@ -1,5 +1,5 @@
 # gSQL
-gSQL - Simple Query Librairy 
+gSQL - Simple Query Library 
 
 ## What's this ?
 Based on **MySQLOO**, gSQL is a simple object-oriented library designed to make effortless the use of **MySQLOO** module. The goal is that the developers only have to send the SQL queries and parameters, gSQL takes care of security and error management.
