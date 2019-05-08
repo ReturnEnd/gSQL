@@ -81,22 +81,23 @@ function gsql:query(queryStr, callback, parameters)
     parameters = parameters or {}
     -- By using this instead of a table in string.gsub, we avoid nil-related errors
     for k, v in pairs(parameters) do
-        v = self.connection:escape(v)
+        if type(v) == 'string' then 
+            v = self.connection:escape(v)
+        end
         queryStr = self.replace(queryStr, k, v)
     end
-    local i = #self.queries + 1
-    self.queries[i] = self.connection:query(queryStr) -- Doing the query
-    self.queries[i].onSuccess = function(query, data)
+    local query = self.connection:query(queryStr) -- Doing the query
+    query.onSuccess = function(query, data)
         callback(true, 'success', data)
     end
-    self.queries[i].onAborted = function(query)
+    query.onAborted = function(query)
         callback(false, 'aborted')
     end
-    self.queries[i].onError = function(query, err)
+    query.onError = function(query, err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
         callback(false, 'error :' .. err)
     end
-    self.queries[i]:start()
+    query:start()
     self.affectedRows = query:affectedRows()
 end
 
