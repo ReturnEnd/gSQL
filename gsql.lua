@@ -107,14 +107,13 @@ end
 -- @see gsql:execute
 function gsql:prepare(queryStr)
     if (queryStr == nil) then
-        file.Append('gsql_logs.txt', '[gsql][prepare] : Argument \'queryStr\' is missing. ')
+        file.Append('gsql_logs.txt', '[gsql][prepare] : Argument \'queryStr\' is missing.')
         error('[gsql] An error occured when preparing a query!')
     elseif (type(queryStr) ~= 'string') then
         file.Append('gsql_logs.txt', '[gsql][prepare] : Incorrect type of \'queryStr\'.')
         error('[gsql] An error occured when preparing a query!')
     end
     self.prepared[#self.prepared + 1] = self.connection:prepare(queryStr)
-
     return #self.prepared
 end
 
@@ -122,8 +121,10 @@ end
 -- @param index number : index of this object in the "prepared" table
 -- @return bool : the status of this deletion
 function gsql:delete(index)
-    index = index or 1 -- First prepared query by default
-    if (type(index) ~= 'number') then
+    if (index == nil) then
+        file.Append('gsql_logs.txt', '[gsql][delete] : Argument \'index\' is missing.')
+        error('[gsql] An error occured when deleting a query!')
+    elseif (type(index) ~= 'number') then
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid type of \'index\'. It must be a number.')
         error('[gsql] An error occured while trying to delete a prepared query!')
     end
