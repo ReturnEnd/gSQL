@@ -3,11 +3,14 @@
 
     @author Gabriel Santamaria <gaby.santamaria@outlook.fr>
 ------------------------------------------------------------]]
-require('mysqloo') -- Based on MySQLOO module https://github.com/FredyH/MySQLOO
-
 gsql = gsql or {
     -- [database] MYSQLOO Database object
     connection = nil,
+    -- [table] Available drivers
+    drivers = {
+        ['mysqloo'] = true, -- Based on MySQLOO module https://github.com/FredyH/MySQLOO
+        ['gmod'] = true
+    },
     -- [table][Query] Queries
     queries = {},
     -- [table][PreparedQuery] Prepared queries
@@ -18,28 +21,42 @@ gsql = gsql or {
 
 --- Class constructor function. Creates a new gSQL object, and a new MySQLOO connection
 -- @param obj table : the object that'll be used after this method
+-- @param driver string : the driver which will be used in this instance
 -- @param dbhost string : host name of the database
 -- @param dbname string : database name
 -- @param dbuser string : database user that'll be used to get datas from the database
 -- @param dbpass string : database user's password
 -- @param port number : port number on which the database is hosted
 -- @return gsql : a gsql object
-function gsql:new(obj, dbhost, dbname, dbuser, dbpass, port)
+function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port)
     obj = obj or {}
     port = port or 3306
+    self.__index = self
     setmetatable(obj, self)
     -- Creating log file if doesn't already exists
     if not file.Exists('gsql_logs.txt', 'DATA') then
         file.Write('gsql_logs.txt', '')
     end
-    self.__index = self
-    -- Creating a new Database object
-    self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
-    function self.connection.onError(err)
-        file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-        error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
+    if not self.drivers[driver] then
+        file.Append('gsql_logs.txt', '[gsql][new] : the specified driver isn\'t supported by gSQL.')
+        error('[gsql] A fatal error appenned while creating the gSQL object! Check your logs for more informations!')
     end
-    self.connection:connect()
+
+    if driver == 'mysqloo' then
+        -- Including the mysqloo driver
+        success, err = pcall(require, 'mysqloo')
+        if not success then
+            file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
+            error('[gsql] A fatal error appenned while trying to include MySQLOO driver!')
+        end
+        -- Creating a new Database object
+        self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
+        function self.connection.onError(err)
+            file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
+            error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
+        end
+        self.connection:connect()
+    end
 
     return self
 end
@@ -97,7 +114,7 @@ function gsql:prepare(queryStr)
     end
     self.prepared[#self.prepared + 1] = self.connection:prepare(queryStr)
 
-    return #self.prepared + 1
+    return #self.prepared
 end
 
 --- Delete a PreparedQuery object from the "prepared" table
