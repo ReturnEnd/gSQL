@@ -2,24 +2,27 @@
     gsql - Facilitate SQL programming for GmodLua
 
     @author Gabriel Santamaria <gaby.santamaria@outlook.fr>
+
+    Copyright 2019 Gabriel Santamaria
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
 ------------------------------------------------------------]]
 gsql = gsql or {
-    -- [database] MYSQLOO Database object
-    connection = nil,
-    -- [table] Available drivers
-    drivers = {
-        ['mysqloo'] = true, -- Based on MySQLOO module https://github.com/FredyH/MySQLOO
-        ['gmod'] = true
-    },
-    -- [table][Query] Queries
-    queries = {},
-    -- [table][PreparedQuery] Prepared queries
-    prepared = {},
-    -- [number] Number of affected rows in the last query
-    affectedRows = nil
+    used = nil -- currently used driver
 }
 
---- Class constructor function. Creates a new gSQL object, and a new MySQLOO connection
+--- Class constructor function. Creates a new gSQL object
 -- @param obj table : the object that'll be used after this method
 -- @param driver string : the driver which will be used in this instance
 -- @param dbhost string : host name of the database
@@ -37,26 +40,12 @@ function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port)
     if not file.Exists('gsql_logs.txt', 'DATA') then
         file.Write('gsql_logs.txt', '')
     end
-    if not self.drivers[driver] then
+    if not self.module[driver] then
         file.Append('gsql_logs.txt', '[gsql][new] : the specified driver isn\'t supported by gSQL.')
         error('[gsql] A fatal error appenned while creating the gSQL object! Check your logs for more informations!')
     end
-
-    if driver == 'mysqloo' then
-        -- Including the mysqloo driver
-        success, err = pcall(require, 'mysqloo')
-        if not success then
-            file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-            error('[gsql] A fatal error appenned while trying to include MySQLOO driver!')
-        end
-        -- Creating a new Database object
-        self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
-        function self.connection.onError(err)
-            file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-            error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
-        end
-        self.connection:connect()
-    end
+    self.used = driver
+    self.module[driver]:init()
 
     return self
 end
@@ -77,28 +66,11 @@ end
 -- @param paramaters table : A table containing all (optionnal) parameters
 -- @return void
 function gsql:query(queryStr, callback, parameters)
-    if (queryStr == nil) then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
+    if self.used == nil then error('gSQL hasn\'t been initialized. Can\'t query anything from a database.') end
+    if queryStr == nil then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
     parameters = parameters or {}
-    -- By using this instead of a table in string.gsub, we avoid nil-related errors
-    for k, v in pairs(parameters) do
-        if type(v) == 'string' then 
-            v = self.connection:escape(v)
-        end
-        queryStr = self.replace(queryStr, k, v)
-    end
-    local query = self.connection:query(queryStr) -- Doing the query
-    query.onSuccess = function(query, data)
-        callback(true, 'success', data)
-    end
-    query.onAborted = function(query)
-        callback(false, 'aborted')
-    end
-    query.onError = function(query, err)
-        file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
-        callback(false, 'error :' .. err)
-    end
-    query:start()
-    self.affectedRows = query:affectedRows()
+
+    self.module[driver]:query(queryStr, callback, parameters)
 end
 
 --- Add a new PreparedQuery object to the "prepared" table
