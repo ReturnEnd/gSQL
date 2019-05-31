@@ -22,8 +22,8 @@
 
 if SERVER then
     include('gsql/gsql.lua')
-    local files, directories = file.Find('gsql/modules', 'LUA')
+    local files, directories = file.Find('gsql/modules/*', 'LUA')
     for _, v in pairs(files) do
-        include('gsql/modules' .. v)
+        include('gsql/modules/' .. v)
     end
 end

@@ -19,6 +19,7 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
+gsql.module = gsql.module or {}
 gsql.module.mysqloo = gsql.module.mysqloo or {
     -- [database] MYSQLOO Database object
     connection = nil,
