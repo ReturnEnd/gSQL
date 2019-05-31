@@ -2,7 +2,12 @@
 gSQL - Simple Query Library 
 
 ## What's this ?
-Based on **MySQLOO**, gSQL is a simple object-oriented library designed to make effortless the use of **MySQLOO** module. The goal is that the developers only have to send the SQL queries and parameters, gSQL takes care of security and error management.
+
+**gSQL** is a simple object-oriented library designed to make effortless the use of the different existing SQL modules. The goal is that the developers only have to send the SQL queries and parameters, gSQL takes care of security and error management.
+
+## Supported modules
+1. **[MySQLOO](https://github.com/FredyH/MySQLOO)** : An object oriented MySQL module for Garry's Mod
+1. **[SQLite](https://wiki.garrysmod.com/page/Category:sql)** : Access powerful database software included with Garry's Mod
 
 ## How to use
 gSQL is a very small and lightweight library. It contains only few methods which are described below.
@@ -35,7 +40,7 @@ local function callback(status, message, data)
     end
 end
 -- Then we can do our query
-object:query(queryStr, callback, parameters)
+object:query(queryStr, parameters, callback)
 ```
 #### Doing a prepared request
 Prepared queries are like simple queries, excepts that they are compiled before passing any argument on them. You can then bind parameters to these queries, to get your data. For more informations about prepared queries, please visit : [Prepared statement (Wikipedia.com)](https://en.wikipedia.org/wiki/Prepared_statement)
@@ -49,7 +54,7 @@ local parameters = {
 }
 local index = object:prepare(queryStr) -- This add a new PreparedQuery object, with the queryStr string
 -- Then, we can execute our prepared query, by giving some parameters
-object:execute(index, callback, parameters)
+object:execute(index, parameters callback)
 ```
 #### Deleting a prepared request
 **gSQL** allow you to delete prepared query you made. You have to precise the index of the prepared query you want to delete (given by `gsql:prepare`) :
