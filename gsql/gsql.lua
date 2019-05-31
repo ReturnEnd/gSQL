@@ -91,7 +91,7 @@ function gsql:prepare(queryStr)
         error('[gsql] An error occured when preparing a query!')
     end
 
-    self.module[driver]:prepare(queryStr)
+    return self.module[driver]:prepare(queryStr)
 end
 
 --- Delete a prepared query, identified by its index
@@ -106,7 +106,7 @@ function gsql:delete(index)
         error('[gsql] An error occured while trying to delete a prepared query!')
     end
 
-    return self.module[driver]:prepare(index)
+    return self.module[driver]:delete(index)
 end
 
 --- Execute a prepared query, identified by its index
