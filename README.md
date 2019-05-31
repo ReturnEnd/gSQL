@@ -22,7 +22,9 @@ local dbInfos = {
     ['dbpass'] = ''
 }
 -- This line create the new gSQL object, stored in our variable called "object"
-local object = gsql:new(object, dbInfos['dbhost'], dbInfos['dbname'], dbInfos['dbuser'], dbInfos['dbpass'])
+local object = gsql:new(object, dbInfos['dbhost'], dbInfos['dbname'], dbInfos['dbuser'], dbInfos['dbpass'], function(success, state)
+    print(success .. ' = ' state)
+end)
 ```
 #### Doing a simple request
 **gSQL**, makes SQL queries super-easy !
@@ -32,9 +34,10 @@ local queryStr = 'SELECT * FROM users WHERE steamid = {{steamid}}'
 local parameters = {
     ['steamid'] = 'STEAM_0:0:0' -- Note that the key match with the name of the parameter in queryStr
 }
-local function callback(status, message, data)
+local function callback(status, message, data, affectedRows)
     if status then
         PrintTable(data)
+        print('Number of affected rows : ' .. affectedRows)
     else
         print("Error upon SQL query :" .. message)
     end

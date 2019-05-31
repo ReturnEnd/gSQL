@@ -30,8 +30,9 @@ gsql = gsql or {
 -- @param dbuser string : database user that'll be used to get datas from the database
 -- @param dbpass string : database user's password
 -- @param port number : port number on which the database is hosted
+-- @param callback function : called 
 -- @return gsql : a gsql object
-function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port)
+function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port, callback)
     obj = obj or {}
     port = port or 3306
     self.__index = self
@@ -46,7 +47,7 @@ function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port)
         error('[gsql] A fatal error appenned while creating the gSQL object! Check your logs for more informations!')
     end
     self.used = driver
-    self.module[driver]:init()
+    self.module[driver]:init(driver, dbhost, dbname, dbuser, dbpass, port, callback)
 
     return self
 end

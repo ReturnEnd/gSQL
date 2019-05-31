@@ -31,7 +31,7 @@ gsql.module.mysqloo = gsql.module.mysqloo or {
     affectedRows = nil
 }
 
-function gsql.module.mysqloo:init()
+function gsql.module.mysqloo:init(driver, dbhost, dbname, dbuser, dbpass, port, callback)
     -- Including the mysqloo driver
     success, err = pcall(require, 'mysqloo')
     if not success then
@@ -40,9 +40,12 @@ function gsql.module.mysqloo:init()
     end
     -- Creating a new Database object
     self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
-    function self.connection.onError(err)
+    function self.connection:onConnected()
+        callback(true, 'success')
+    end
+    function self.connection:onConnectionFailed(err)
         file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-        error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
+        callback(false, 'err : ' .. err)
     end
     self.connection:connect()
 end
@@ -53,7 +56,7 @@ end
 -- @param paramaters table : A table containing all (optionnal) parameters
 -- @return void
 function gsql.module.mysqloo:query(queryStr, parameters, callback)
-    if (queryStr == nil) then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
+    if (queryStr == nil) then error('[gsql][query] An error occured while trying to query : Argument \'queryStr\' is missing!') end
     parameters = parameters or {}
     -- By using this instead of a table in string.gsub, we avoid nil-related errors
     for k, v in pairs(parameters) do
@@ -64,17 +67,17 @@ function gsql.module.mysqloo:query(queryStr, parameters, callback)
     end
     local query = self.connection:query(queryStr) -- Doing the query
     query.onSuccess = function(query, data)
-        callback(true, 'success', data)
+        self.affectedRows = query:affectedRows()
+        callback(true, 'success', data, self.affectedRows)
     end
     query.onAborted = function(query)
         callback(false, 'aborted')
     end
     query.onError = function(query, err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
-        callback(false, 'error :' .. err)
+        callback(false, 'error : ' .. err)
     end
     query:start()
-    self.affectedRows = query:affectedRows()
 end
 
 --- Add a new PreparedQuery object to the "prepared" table
