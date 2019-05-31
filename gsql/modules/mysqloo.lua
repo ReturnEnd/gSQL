@@ -1,5 +1,6 @@
 --[[----------------------------------------------------------
-    gsql - Facilitate SQL programming for GmodLua
+    gsql.mysqloo - MySQLOO module for gSQL
+    - Based on MySQLOO module https://github.com/FredyH/MySQLOO -
 
     @author Gabriel Santamaria <gaby.santamaria@outlook.fr>
 
@@ -18,46 +19,31 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
-gsql = gsql or {
-    used = nil -- currently used driver
+gsql.module.mysqloo = gsql.module.mysqloo or {
+    -- [database] MYSQLOO Database object
+    connection = nil,
+    -- [table][Query] Queries
+    queries = {},
+    -- [table][PreparedQuery] Prepared queries
+    prepared = {},
+    -- [number] Number of affected rows in the last query
+    affectedRows = nil
 }
 
---- Class constructor function. Creates a new gSQL object
--- @param obj table : the object that'll be used after this method
--- @param driver string : the driver which will be used in this instance
--- @param dbhost string : host name of the database
--- @param dbname string : database name
--- @param dbuser string : database user that'll be used to get datas from the database
--- @param dbpass string : database user's password
--- @param port number : port number on which the database is hosted
--- @return gsql : a gsql object
-function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port)
-    obj = obj or {}
-    port = port or 3306
-    self.__index = self
-    setmetatable(obj, self)
-    -- Creating log file if doesn't already exists
-    if not file.Exists('gsql_logs.txt', 'DATA') then
-        file.Write('gsql_logs.txt', '')
+function gsql.module.mysqloo:init()
+    -- Including the mysqloo driver
+    success, err = pcall(require, 'mysqloo')
+    if not success then
+        file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
+        error('[gsql] A fatal error appenned while trying to include MySQLOO driver!')
     end
-    if not self.module[driver] then
-        file.Append('gsql_logs.txt', '[gsql][new] : the specified driver isn\'t supported by gSQL.')
-        error('[gsql] A fatal error appenned while creating the gSQL object! Check your logs for more informations!')
+    -- Creating a new Database object
+    self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
+    function self.connection.onError(err)
+        file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
+        error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
     end
-    self.used = driver
-    self.module[driver]:init()
-
-    return self
-end
-
---- Helper function that replace parameters found in a string by the parameter itself.
--- @param queryStr string : the string that'll be affected by this function
--- @param name string : the name of the parameter which have to be found and replaced
--- @param value any : the value of the parameter
--- @return string : the new string, with parameters values instead of names
-function gsql.replace(queryStr, name, value)
-    local pattern = '{{' .. name .. '}}'
-    return string.gsub(queryStr, pattern, value)
+    self.connection:connect()
 end
 
 --- Set a new Query object and start the query
@@ -65,26 +51,36 @@ end
 -- @param callback function : Function that'll be called when the query finished
 -- @param paramaters table : A table containing all (optionnal) parameters
 -- @return void
-function gsql:query(queryStr, callback, parameters)
-    if self.used == nil then error('gSQL hasn\'t been initialized. Can\'t query anything from a database.') end
-    if queryStr == nil then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
+function gsql.module.mysqloo:query(queryStr, parameters, callback)
+    if (queryStr == nil) then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
     parameters = parameters or {}
-
-    self.module[driver]:query(queryStr, callback, parameters)
+    -- By using this instead of a table in string.gsub, we avoid nil-related errors
+    for k, v in pairs(parameters) do
+        if type(v) == 'string' then
+            v = self.connection:escape(v)
+        end
+        queryStr = gsql.replace(queryStr, k, v)
+    end
+    local query = self.connection:query(queryStr) -- Doing the query
+    query.onSuccess = function(query, data)
+        callback(true, 'success', data)
+    end
+    query.onAborted = function(query)
+        callback(false, 'aborted')
+    end
+    query.onError = function(query, err)
+        file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
+        callback(false, 'error :' .. err)
+    end
+    query:start()
+    self.affectedRows = query:affectedRows()
 end
 
 --- Add a new PreparedQuery object to the "prepared" table
 -- @param queryStr string : A SQL query string
 -- @return number : index of this object in the "prepared" table
 -- @see gsql:execute
-function gsql:prepare(queryStr)
-    if (queryStr == nil) then
-        file.Append('gsql_logs.txt', '[gsql][prepare] : Argument \'queryStr\' is missing.')
-        error('[gsql] An error occured when preparing a query!')
-    elseif (type(queryStr) ~= 'string') then
-        file.Append('gsql_logs.txt', '[gsql][prepare] : Incorrect type of \'queryStr\'.')
-        error('[gsql] An error occured when preparing a query!')
-    end
+function gsql.module.mysqloo:prepare(queryStr)
     self.prepared[#self.prepared + 1] = self.connection:prepare(queryStr)
     return #self.prepared
 end
@@ -92,14 +88,7 @@ end
 --- Delete a PreparedQuery object from the "prepared" table
 -- @param index number : index of this object in the "prepared" table
 -- @return bool : the status of this deletion
-function gsql:delete(index)
-    if (index == nil) then
-        file.Append('gsql_logs.txt', '[gsql][delete] : Argument \'index\' is missing.')
-        error('[gsql] An error occured when deleting a query!')
-    elseif (type(index) ~= 'number') then
-        file.Append('gsql_logs.txt', '[gsql][delete] : Invalid type of \'index\'. It must be a number.')
-        error('[gsql] An error occured while trying to delete a prepared query!')
-    end
+function gsql.module.mysqloo:delete(index)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to delete a prepared query! See logs for more informations')
@@ -116,8 +105,7 @@ end
 -- @param callback function : function called when the PreparedQuery finished
 -- @param parameters table : table of all parameters that'll be added to the prepared query
 -- @return void
-function gsql:execute(index, callback, parameters)
-    parameters = parameters or {}
+function gsql.module.mysqloo:execute(index, parameters, callback)
     local i = 1
     for _, v in pairs(parameters) do
         if (type(v) == 'number') then -- Thanks Lua for the absence of a switch statement
