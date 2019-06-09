@@ -76,7 +76,7 @@ function gsql:query(queryStr, parameters, callback)
     end
     parameters = parameters or {}
 
-    self.module[driver]:query(queryStr, parameters, callback)
+    self.module[self.used]:query(queryStr, parameters, callback)
 end
 
 --- Prepare a new SQL string. Ready to execute
@@ -92,7 +92,7 @@ function gsql:prepare(queryStr)
         error('[gsql] An error occured when preparing a query!')
     end
 
-    return self.module[driver]:prepare(queryStr)
+    return self.module[self.used]:prepare(queryStr)
 end
 
 --- Delete a prepared query, identified by its index
@@ -107,7 +107,7 @@ function gsql:delete(index)
         error('[gsql] An error occured while trying to delete a prepared query!')
     end
 
-    return self.module[driver]:delete(index)
+    return self.module[self.used]:delete(index)
 end
 
 --- Execute a prepared query, identified by its index
@@ -125,5 +125,5 @@ function gsql:execute(index, parameters, callback)
     end
     parameters = parameters or {}
 
-    self.module[driver]:execute(index, parameters, callback)
+    self.module[self.used]:execute(index, parameters, callback)
 end
