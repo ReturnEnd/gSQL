@@ -64,6 +64,7 @@ function gsql.module.mysqloo:query(queryStr, parameters, callback)
             v = self.connection:escape(v)
         end
         queryStr = gsql.replace(queryStr, k, v)
+        print(queryStr)
     end
     local query = self.connection:query(queryStr) -- Doing the query
     query.onSuccess = function(query, data)
@@ -111,7 +112,7 @@ end
 -- @return void
 function gsql.module.mysqloo:execute(index, parameters, callback)
     local i = 1
-    for _, v in pairs(parameters) do
+    for k, v in ipairs(parameters) do
         if (type(v) == 'number') then -- Thanks Lua for the absence of a switch statement
             self.prepared[index]:setNumber(i, v)
         elseif (type(v) == 'string') then
