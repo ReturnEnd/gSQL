@@ -5,63 +5,88 @@ gSQL - Simple Query Library
 
 **gSQL** is a simple object-oriented library designed to make effortless the use of the different existing SQL modules. The goal is that the developers only have to send the SQL queries and parameters, gSQL takes care of security and error management.
 
+**With gSQL, write your code only ONCE and use it on any supported driver!**
+
 ## Supported modules
 1. **[MySQLOO](https://github.com/FredyH/MySQLOO)** : An object oriented MySQL module for Garry's Mod
 1. **[SQLite](https://wiki.garrysmod.com/page/Category:sql)** : Access powerful database software included with Garry's Mod
 
-## How to use
-gSQL is a very small and lightweight library. It contains only few methods which are described below.
+## Features
+* Lightweight, only 5 methods
+* Freaking easy to use
+* **Write your code only once** to use it with several drivers
+* Error logs management
+* Security management: send your parameters, gSQL does the rest
+* Parameter system in unprepared queries
 
-#### Creating a new gSQL object
-As we already said, **gSQL** is an object-oriented library, this means you have to work with objects instead of simple functions. You first need to create a new **gSQL** object :
+## Available functions
+
+**gSQL** includes a total of 5 functions that will allow you to interact with your SQL server in a basic way.
+
+### Constructor : `gsql:new()`
+
+* Prototype : `gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port, callback)`
+* Description : This function creates a new **gSQL** object and return it.
+* Example :
 ```lua
-local dbInfos = {
-    ['dbhost'] = 'localhost',
-    ['dbname'] = 'gsql',
-    ['dbuser'] = 'root',
-    ['dbpass'] = ''
+local database = {
+    host = 'localhost',
+    name = 'gsql',
+    user = 'root',
+    pass = ''
 }
--- This line create the new gSQL object, stored in our variable called "object"
-local object = gsql:new(object, dbInfos['dbhost'], dbInfos['dbname'], dbInfos['dbuser'], dbInfos['dbpass'], function(success, state)
-    print(success .. ' = ' state)
+local db = gsql:new(db, 'sqlite', database.host, database.name, database.user, database.pass, 3306, function(success, message)
+    print(success)
+    print(message)
 end)
 ```
-#### Doing a simple request
-**gSQL**, makes SQL queries super-easy !
+
+### Query : `gsql:query()`
+
+* Prototype : `gsql:query(sqlStr, parameters, callback)`
+* Description : This function do a basic query to the SQL server that has been set in `gsql:new`
+* Example :
 ```lua
--- This is our query. Note that {{steamid}} is a parameter.
-local queryStr = 'SELECT * FROM users WHERE steamid = {{steamid}}'
 local parameters = {
-    ['steamid'] = 'STEAM_0:0:0' -- Note that the key match with the name of the parameter in queryStr
+    ['userid'] = ply:SteamID64()
 }
-local function callback(status, message, data, affectedRows)
-    if status then
-        PrintTable(data)
-        print('Number of affected rows : ' .. affectedRows)
-    else
-        print("Error upon SQL query :" .. message)
-    end
+db:query('SELECT * FROM development WHERE steamid = {{userid}}', parameters, function (success, message, data)
+    if not success then print(message) return end
+end)
+```
+
+### Prepare : `gsql:prepare()`
+
+* Prototype : `gsql:prepare(sqlStr)`
+* Description : Creates a prepared query and returns its ID in an internal table.
+* Example :
+```lua
+local index = db:prepare('SELECT * FROM development WHERE number = ?')
+```
+
+### Delete : `gsql:delete()`
+
+* Prototype : `gsql:prepare(index)`
+* Description : Delete a prepared query, identified by its index, from an internal table
+* Example :
+```lua
+if not db:delete(index) then
+    print('An error occurred here, see your logs for more details.')
 end
--- Then we can do our query
-object:query(queryStr, parameters, callback)
 ```
-#### Doing a prepared request
-Prepared queries are like simple queries, excepts that they are compiled before passing any argument on them. You can then bind parameters to these queries, to get your data. For more informations about prepared queries, please visit : [Prepared statement (Wikipedia.com)](https://en.wikipedia.org/wiki/Prepared_statement)
-In **gSQL**, you can do prepared queries as following : 
+
+### Execute : `gsql:execute()`
+
+* Prototype : `gsql:execute(index, parameters, callback)`
+* Description : Execute a prepared query, identified by its index
+* Example :
 ```lua
-local queryStr = "INSERT INTO messages (author, content, date_time) VALUES(?, ?, ?)"
-local parameters = {
-    [1] = 'STEAM_0:0:0',
-    [2] = 'This message will be added to a database!',
-    [3] = os.time()
-}
-local index = object:prepare(queryStr) -- This add a new PreparedQuery object, with the queryStr string
--- Then, we can execute our prepared query, by giving some parameters
-object:execute(index, parameters callback)
+local index = db:prepare('SELECT * FROM development WHERE number = ?')
+db:execute(index, {1533}, function(success, message, data)
+    if not success then print(message) return end
+    PrintTable(data)
+end)
 ```
-#### Deleting a prepared request
-**gSQL** allow you to delete prepared query you made. You have to precise the index of the prepared query you want to delete (given by `gsql:prepare`) :
-```lua
--- This will delete the prepared query number index
-object:delete(index)
-```
+
+## License
+This code is distributed free of charge under the [Apache 2.0 license](https://www.apache.org/licenses/LICENSE-2.0). The code is distributed "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND. For more information, please visit [LICENSE](https://github.com/Gabyfle/gSQL/blob/master/LICENSE)

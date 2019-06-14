@@ -23,8 +23,6 @@ gsql.module = gsql.module or {}
 gsql.module.mysqloo = gsql.module.mysqloo or {
     -- [database] MYSQLOO Database object
     connection = nil,
-    -- [table][Query] Queries
-    queries = {},
     -- [table][PreparedQuery] Prepared queries
     prepared = {},
     -- [number] Number of affected rows in the last query
@@ -32,6 +30,7 @@ gsql.module.mysqloo = gsql.module.mysqloo or {
 }
 
 function gsql.module.mysqloo:init(driver, dbhost, dbname, dbuser, dbpass, port, callback)
+    if not port then port = 3306 end
     -- Including the mysqloo driver
     success, err = pcall(require, 'mysqloo')
     if not success then
@@ -111,6 +110,11 @@ end
 -- @param parameters table : table of all parameters that'll be added to the prepared query
 -- @return void
 function gsql.module.mysqloo:execute(index, parameters, callback)
+    if not self.prepared[index] then -- Checking if the index is correct
+        file.Append('gsql_logs.txt', '[gsql][execute] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
+        error('[gsql] An error occured while trying to execute a prepared query! See logs for more informations')
+        return false
+    end
     local i = 1
     for k, v in ipairs(parameters) do
         if (type(v) == 'number') then -- Thanks Lua for the absence of a switch statement
