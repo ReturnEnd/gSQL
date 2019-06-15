@@ -87,29 +87,15 @@ end
 -- @param parameters table
 -- @return string : the SQL string with binded parameters
 function gsql.module.sqlite.bindParams(sqlstr, parameters)
-    -- Escaping each parameter
-    for k, v in pairs(parameters) do
-        if not isstring(v) then continue end
-        parameters[k] = sql.SQLStr(v, true)
-    end
-
-    local i = 1
-    local pos = string.find(sqlstr, '?')
-    local length = string.len(sqlstr)
-    local param
-
-    while pos do
-        param = parameters[i]
-        if isstring(param) then
-            param = '"' .. param .. '"'
-        elseif param == nil then
-            param = 'NULL' -- SQL keyword for nil things
+    for k, v in pairs( parameters ) do
+        if v == nil then
+            v = 'NULL'
+        elseif type( v ) != "number" then
+            v = sql.SQLStr(v, true)
+            v = '"' .. v .. '"'
         end
-        sqlstr = string.sub(sqlstr, 1, pos - 1) .. param .. string.sub(sqlstr, pos + 1, length)
-        pos = string.find(sqlstr, '?')
-        i = i + 1
+        sqlstr = string.gsub( sqlstr, "?" .. k, v )
     end
-
     return sqlstr
 end
 
