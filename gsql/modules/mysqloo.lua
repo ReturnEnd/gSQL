@@ -19,24 +19,25 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
-gsql.module = gsql.module or {}
-gsql.module.mysqloo = gsql.module.mysqloo or {
-    -- [database] MYSQLOO Database object
-    connection = nil,
-    -- [table][PreparedQuery] Prepared queries
-    prepared = {},
-    -- [number] Number of affected rows in the last query
-    affectedRows = nil
-}
+require('mysqloo')
 
-function gsql.module.mysqloo:init(driver, dbhost, dbname, dbuser, dbpass, port, callback)
-    if not port then port = 3306 end
-    -- Including the mysqloo driver
-    success, err = pcall(require, 'mysqloo')
-    if not success then
-        file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-        error('[gsql] A fatal error appenned while trying to include MySQLOO driver!')
-    end
+-- Connections cache
+local cache = {}
+
+local mod = {}
+mod.__index = mod
+
+function mod:new(dbhost, dbname, dbuser, dbpass, port, callback)
+    local connUID = util.CRC(dbhost .. dbname .. dbuser)
+    if cache[connUID] then return cache[connUID] end
+
+    local newMod = {
+        connection = nil,
+        prepared = {},
+        affectedRows = nil
+    }
+    setmetatable(newMod, mod)
+
     -- Creating a new Database object
     self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
     function self.connection:onConnected()
@@ -47,14 +48,19 @@ function gsql.module.mysqloo:init(driver, dbhost, dbname, dbuser, dbpass, port, 
         callback(false, 'err : ' .. err)
     end
     self.connection:connect()
+
+    cache[connUID] = self
+    return self
 end
+setmetatable( mod, { __call = mod.new } )
+
 
 --- Set a new Query object and start the query
 -- @param queryStr string : A SQL query string
 -- @param callback function : Function that'll be called when the query finished
 -- @param paramaters table : A table containing all (optionnal) parameters
 -- @return void
-function gsql.module.mysqloo:query(queryStr, parameters, callback)
+function mod:query(queryStr, parameters, callback)
     if (queryStr == nil) then error('[gsql][query] An error occured while trying to query : Argument \'queryStr\' is missing!') end
     parameters = parameters or {}
     -- By using this instead of a table in string.gsub, we avoid nil-related errors
@@ -84,7 +90,7 @@ end
 -- @param queryStr string : A SQL query string
 -- @return number : index of this object in the "prepared" table
 -- @see gsql:execute
-function gsql.module.mysqloo:prepare(queryStr)
+function mod:prepare(queryStr)
     self.prepared[#self.prepared + 1] = self.connection:prepare(queryStr)
     return #self.prepared
 end
@@ -92,7 +98,7 @@ end
 --- Delete a PreparedQuery object from the "prepared" table
 -- @param index number : index of this object in the "prepared" table
 -- @return bool : the status of this deletion
-function gsql.module.mysqloo:delete(index)
+function mod:delete(index)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to delete a prepared query! See logs for more informations')
@@ -109,7 +115,7 @@ end
 -- @param callback function : function called when the PreparedQuery finished
 -- @param parameters table : table of all parameters that'll be added to the prepared query
 -- @return void
-function gsql.module.mysqloo:execute(index, parameters, callback)
+function mod:execute(index, parameters, callback)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][execute] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to execute a prepared query! See logs for more informations')
@@ -144,3 +150,5 @@ function gsql.module.mysqloo:execute(index, parameters, callback)
     end
     self.prepared[index]:start()
 end
+
+return mod

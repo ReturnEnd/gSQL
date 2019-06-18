@@ -23,10 +23,18 @@
 if SERVER then
     include('gsql/gsql.lua')
     print('gSQL is fun, gSQL is life!')
+
+    -- Creating log file if doesn't already exists
+    if not file.Exists('gsql_logs.txt', 'DATA') then
+        file.Write('gsql_logs.txt', '')
+    end
+    
+    --[[
     local files, directories = file.Find('gsql/modules/*', 'LUA')
     print('gSQL - Loading modules')
     for _, v in pairs(files) do
         print('gSQL --- MODULE : ' .. v)
         include('gsql/modules/' .. v)
     end
+    --]]
 end
