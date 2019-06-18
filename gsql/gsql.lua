@@ -18,12 +18,19 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
-gsql = gsql or {
-    used = nil -- currently used driver
-}
+gsql = {}
+gsql.__index = gsql
+
+local modules = {}
+
+--- Module loading helper function
+local function loadModule( moduleName )
+    if modules[moduleName] then return modules[moduleName] end
+    modules[moduleName] = include('gsql/modules/' .. moduleName .. '.lua')
+    return modules[moduleName]
+end
 
 --- Class constructor function. Creates a new gSQL object
--- @param obj table : the object that'll be used after this method
 -- @param driver string : the driver which will be used in this instance
 -- @param dbhost string : host name of the database
 -- @param dbname string : database name
@@ -32,25 +39,24 @@ gsql = gsql or {
 -- @param port number : port number on which the database is hosted
 -- @param callback function : called 
 -- @return gsql : a gsql object
-function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port, callback)
-    obj = obj or {}
-    port = port or 3306
-    self.__index = self
-    setmetatable(obj, self)
-    -- Creating log file if doesn't already exists
-    if not file.Exists('gsql_logs.txt', 'DATA') then
-        file.Write('gsql_logs.txt', '')
-    end
-    -- Checking if the chosen module exists
-    if not self.module[driver] then
-        file.Append('gsql_logs.txt', '[gsql][new] : the specified driver isn\'t supported by gSQL.')
-        error('[gsql] A fatal error appenned while creating the gSQL object! Check your logs for more informations!')
-    end
-    self.used = driver
-    self.module[driver]:init(driver, dbhost, dbname, dbuser, dbpass, port, callback)
+function gsql:new(driver, dbhost, dbname, dbuser, dbpass, port, callback)
+    local newGsql = {
+        driver = driver,
+        dbhost = dbhost,
+        dbname = dbname,
+        dbuser = dbuser,
+        port = port or 3306,
+        db = nil
+    }
+    setmetatable(newGsql, gsql)
+
+    local mod = loadModule(driver)
+    self.db = mod(dbhost, dbname, dbuser, dbpass, port or 3306, callback)
 
     return self
 end
+setmetatable( gsql, { __call = gsql.new } )
+
 
 --- Helper function that replace parameters found in a string by the parameter itself.
 -- @param queryStr string : the string that'll be affected by this function
