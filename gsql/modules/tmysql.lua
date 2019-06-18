@@ -1,6 +1,6 @@
 --[[----------------------------------------------------------
-    gsql.mysqloo - MySQLOO module for gSQL
-    - Based on MySQLOO module https://github.com/FredyH/MySQLOO -
+    gsql.tmysql - tMySQL4 module for gSQL
+    - Based on tMySQL4 module https://github.com/bkacjios/gm_tmysql4 -
 
     @author Gabriel Santamaria <gaby.santamaria@outlook.fr>
 
@@ -19,78 +19,64 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
-local MODULE = {
-    -- [database] MYSQLOO Database object
+gsql.module = gsql.module or {}
+gsql.module.tmysql = gsql.module.tmysql or {
+    -- [Database] The Database connection object
     connection = nil,
-    -- [table][PreparedQuery] Prepared queries
-    prepared = {},
     -- [number] Number of affected rows in the last query
     affectedRows = nil
 }
 
-local helpers = include('../helpers.lua')
-
-function MODULE:init(dbhost, dbname, dbuser, dbpass, port, callback)
-    local connUID = util.CRC(dbhost .. dbname .. dbuser)
-    if gsql.cache[connUID] then
-        self.connection = gsql.cache[connUID]
-    end
-    -- Including the mysqloo driver
-    success, err = pcall(require, 'mysqloo')
+function gsql.module.tmysql:init(dbhost, dbname, dbuser, dbpass, port, callback)
+    if not port then port = 3306 end
+    -- Including the tmysql4 driver
+    success, err = pcall(require, 'tmysql4')
     if not success then
         file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-        error('[gsql] A fatal error appenned while trying to include MySQLOO driver!')
+        error('[gsql] A fatal error appenned while trying to include tMySQL4 driver!')
     end
-    -- Creating a new Database object
-    if not self.connection then
-        self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port or 3306)
-        gsql.cache[connUID] = self.connection
-    end
-    function self.connection:onConnected()
-        callback(true, 'success')
-    end
-    function self.connection:onConnectionFailed(err)
+    
+    self.connection, err = tmysql.initialize(dbhost, dbuser, dbpass, dbname, port, nil, CLIENT_MULTI_STATEMENTS)
+    if err then
         file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
         callback(false, 'err : ' .. err)
-    end
-
-    if self.connection:status() ~= 0 and self.connection:status() ~= 1 then
-        self.connection:connect()
+    else
+        callback(true, 'success')
     end
 end
 
---- Set a new Query object and start the query
+--- Starts a new query with the existing connection
 -- @param queryStr string : A SQL query string
 -- @param callback function : Function that'll be called when the query finished
 -- @param paramaters table : A table containing all (optionnal) parameters
 -- @return void
-function MODULE:query(queryStr, parameters, callback)
+function gsql.module.tmysql:query(queryStr, parameters, callback)
+    if (queryStr == nil) then error('[gsql][query] An error occured while trying to query : Argument \'queryStr\' is missing!') end
+    parameters = parameters or {}
+    -- By using this instead of a table in string.gsub, we avoid nil-related errors
     for k, v in pairs(parameters) do
         if type(v) == 'string' then
-            v = self.connection:escape(v)
+            v = self.connection:Escape(v)
         end
-        queryStr = helpers.replace(queryStr, k, tostring(v))
+        queryStr = gsql.replace(queryStr, k, v)
     end
-    local query = self.connection:query(queryStr) -- Doing the query
-    query.onSuccess = function(query, data)
-        self.affectedRows = query:affectedRows()
-        callback(true, 'success', data, self.affectedRows)
-    end
-    query.onAborted = function(query)
-        callback(false, 'aborted')
-    end
-    query.onError = function(query, err)
-        file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
-        callback(false, 'error : ' .. err)
-    end
-    query:start()
+
+    local query = self.connection:Query(queryStr, function (result)
+        if not result.status then
+            file.Append('gsql_logs.txt', '[gsql][query] : ' .. result.error)
+            callback(false, 'error : ' .. result.error)
+            return
+        end
+        self.affectedRows = result.affected
+        callback(true, 'success', result.data, self.affectedRows)
+    end)
 end
 
 --- Add a new PreparedQuery object to the "prepared" table
 -- @param queryStr string : A SQL query string
 -- @return number : index of this object in the "prepared" table
 -- @see gsql:execute
-function MODULE:prepare(queryStr)
+function gsql.module.mysqloo:prepare(queryStr)
     self.prepared[#self.prepared + 1] = self.connection:prepare(queryStr)
     return #self.prepared
 end
@@ -98,7 +84,7 @@ end
 --- Delete a PreparedQuery object from the "prepared" table
 -- @param index number : index of this object in the "prepared" table
 -- @return bool : the status of this deletion
-function MODULE:delete(index)
+function gsql.module.mysqloo:delete(index)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to delete a prepared query! See logs for more informations')
@@ -115,7 +101,7 @@ end
 -- @param callback function : function called when the PreparedQuery finished
 -- @param parameters table : table of all parameters that'll be added to the prepared query
 -- @return void
-function MODULE:execute(index, parameters, callback)
+function gsql.module.mysqloo:execute(index, parameters, callback)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][execute] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to execute a prepared query! See logs for more informations')
@@ -123,13 +109,13 @@ function MODULE:execute(index, parameters, callback)
     end
     local i = 1
     for k, v in ipairs(parameters) do
-        if isnumber(v) then -- Thanks Lua for the absence of a switch statement
+        if (type(v) == 'number') then -- Thanks Lua for the absence of a switch statement
             self.prepared[index]:setNumber(i, v)
-        elseif isstring(v) then
+        elseif (type(v) == 'string') then
             self.prepared[index]:setString(i, v)
-        elseif isbool(v) then
+        elseif (type(v) == 'bool') then
             self.prepared[index]:setBool(i, v)
-        elseif v == nil then
+        elseif (type(v) == 'nil') then
             self.prepared[index]:setNull(i)
         else
             file.Append('gsql_logs.txt', '[gsql][execute] : Invalid type of parameter (parameter : ' .. k .. ' value : ' .. v .. ')')
@@ -150,5 +136,3 @@ function MODULE:execute(index, parameters, callback)
     end
     self.prepared[index]:start()
 end
-
-return MODULE
