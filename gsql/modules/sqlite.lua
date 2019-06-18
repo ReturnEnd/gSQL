@@ -19,16 +19,17 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
-gsql.module = gsql.module or {}
-gsql.module.sqlite = gsql.module.sqlite or {
+local MODULE = {
     -- [number] Number of affected rows in the last query
     affectedRows = nil,
     -- [table] Every requests wich will be used as PREPARED QUERIES
     prepared = {}
 }
 
+local helpers = include('../helpers.lua')
+
 --- Just does nothing, because the "sql" lib is loaded by default by Gmod
-function gsql.module.sqlite:init(driver, dbhost, dbname, dbuser, dbpass, port, callback)
+function MODULE:init(dbhost, dbname, dbuser, dbpass, port, callback)
     callback(true, 'success')
 end
 
@@ -37,15 +38,12 @@ end
 -- @param callback function : Function that'll be called when the query finished
 -- @param paramaters table : A table containing all (optionnal) parameters
 -- @return void
-function gsql.module.sqlite:query(queryStr, parameters, callback)
-    if (queryStr == nil) then error('[gsql][query] An error occured while trying to query : Argument \'queryStr\' is missing!') end
-    parameters = parameters or {}
+function MODULE:query(queryStr, parameters, callback)
     for k, v in pairs(parameters) do
-        if type(v) == 'string' then
-            v = '"' .. v .. '"'
+        if isstring(v) then
             v = sql.SQLStr(v, true)
         end
-        queryStr = gsql.replace(queryStr, k, v)
+        queryStr = helpers.replace(queryStr, k, v)
     end
     local query = sql.Query(queryStr)
     if query or query == nil then
@@ -63,7 +61,7 @@ end
 -- @param queryStr string : A SQL query string
 -- @return number : index of this object in the "prepared" table
 -- @see gsql:execute
-function gsql.module.sqlite:prepare(queryStr)
+function MODULE:prepare(queryStr)
     self.prepared[#self.prepared + 1] = queryStr
     return #self.prepared
 end
@@ -71,7 +69,7 @@ end
 --- Delete an SQL string from the sqlite.prepared table
 -- @param index number : index of this object in the sqlite.prepared table
 -- @return bool : the status of this deletion
-function gsql.module.sqlite:delete(index)
+function MODULE:delete(index)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to delete a prepared query! See logs for more informations')
@@ -86,15 +84,15 @@ end
 -- @param sql string
 -- @param parameters table
 -- @return string : the SQL string with binded parameters
-function gsql.module.sqlite.bindParams(sqlstr, parameters)
-    for k, v in pairs( parameters ) do
+local function bindParams(sqlstr, parameters)
+    for k, v in pairs(parameters) do
         if v == nil then
             v = 'NULL'
-        elseif type( v ) != "number" then
+        elseif not isnumber(v) then
             v = sql.SQLStr(v, true)
             v = '"' .. v .. '"'
         end
-        sqlstr = string.gsub( sqlstr, "?" .. k, v )
+        sqlstr = string.gsub(sqlstr, '?', v, 1)
     end
     return sqlstr
 end
@@ -105,12 +103,14 @@ end
 -- @param callback function : function called when the query is finished
 -- @param parameters table : table of all parameters that'll be added to the prepared query
 -- @return void
-function gsql.module.sqlite:execute(index, parameters, callback)
+function MODULE:execute(index, parameters, callback)
     if not self.prepared[index] then -- Checking if the index is correct
         file.Append('gsql_logs.txt', '[gsql][execute] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
         error('[gsql] An error occured while trying to execute a prepared query! See logs for more informations')
         return false
     end
-    local sqlStr = self.bindParams(self.prepared[index], parameters)
+    local sqlStr = bindParams(self.prepared[index], parameters)
     self:query(sqlStr, {}, callback) -- We don't need to pass a second time the arguments since we already bound them
 end
+
+return MODULE

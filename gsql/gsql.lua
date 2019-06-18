@@ -18,19 +18,23 @@
     limitations under the License.
 
 ------------------------------------------------------------]]
-gsql = {}
+gsql = gsql or {
+    cache = {} -- connections will be cached here
+}
 gsql.__index = gsql
 
+local helpers = include('helpers.lua')
 local modules = {}
 
 --- Module loading helper function
-local function loadModule( moduleName )
+local function loadModule(moduleName)
     if modules[moduleName] then return modules[moduleName] end
     modules[moduleName] = include('gsql/modules/' .. moduleName .. '.lua')
     return modules[moduleName]
 end
 
 --- Class constructor function. Creates a new gSQL object
+-- @param obj table : the object that'll be used after this method
 -- @param driver string : the driver which will be used in this instance
 -- @param dbhost string : host name of the database
 -- @param dbname string : database name
@@ -39,33 +43,32 @@ end
 -- @param port number : port number on which the database is hosted
 -- @param callback function : called 
 -- @return gsql : a gsql object
-function gsql:new(driver, dbhost, dbname, dbuser, dbpass, port, callback)
-    local newGsql = {
-        driver = driver,
-        dbhost = dbhost,
-        dbname = dbname,
-        dbuser = dbuser,
-        port = port or 3306,
-        db = nil
-    }
-    setmetatable(newGsql, gsql)
+function gsql:new(obj, driver, dbhost, dbname, dbuser, dbpass, port, callback)
+    obj = obj or {}
+    port = port or 3306
+    if istable(dbhost) then
+        callback = dbname
+        dbhost   = dbhost.host
+        dbname   = dbhost.name
+        dbuser   = dbhost.user
+        dbpass   = dbhost.pass
+        port     = dbhost.port
+    end
 
-    local mod = loadModule(driver)
-    self.db = mod(dbhost, dbname, dbuser, dbpass, port or 3306, callback)
+    -- Creating log file if doesn't already exists
+    if not file.Exists('gsql_logs.txt', 'DATA') then
+        file.Write('gsql_logs.txt', '')
+    end
+    -- Checking if the chosen module exists
+    if not helpers.moduleExists(driver) then
+        file.Append('gsql_logs.txt', '[gsql][new] : the specified driver isn\'t supported by gSQL.')
+        error('[gsql] A fatal error appenned while creating the gSQL object! Check your logs for more informations!')
+    end
+    self.used = driver
+    modules[self.used] = loadModule(driver)
+    modules[self.used]:init(dbhost, dbname, dbuser, dbpass, port, callback)
 
     return self
-end
-setmetatable( gsql, { __call = gsql.new } )
-
-
---- Helper function that replace parameters found in a string by the parameter itself.
--- @param queryStr string : the string that'll be affected by this function
--- @param name string : the name of the parameter which have to be found and replaced
--- @param value any : the value of the parameter
--- @return string : the new string, with parameters values instead of names
-function gsql.replace(queryStr, name, value)
-    local pattern = '{{' .. name .. '}}'
-    return string.gsub(queryStr, pattern, value)
 end
 
 --- Make a query from an SQL string
@@ -82,7 +85,7 @@ function gsql:query(queryStr, parameters, callback)
     end
     parameters = parameters or {}
 
-    self.module[self.used]:query(queryStr, parameters, callback)
+    modules[self.used]:query(queryStr, parameters, callback)
 end
 
 --- Prepare a new SQL string. Ready to execute
@@ -98,7 +101,7 @@ function gsql:prepare(queryStr)
         error('[gsql] An error occured when preparing a query!')
     end
 
-    return self.module[self.used]:prepare(queryStr)
+    return modules[self.used]:prepare(queryStr)
 end
 
 --- Delete a prepared query, identified by its index
@@ -113,7 +116,7 @@ function gsql:delete(index)
         error('[gsql] An error occured while trying to delete a prepared query!')
     end
 
-    return self.module[self.used]:delete(index)
+    return modules[self.used]:delete(index)
 end
 
 --- Execute a prepared query, identified by its index
@@ -131,5 +134,5 @@ function gsql:execute(index, parameters, callback)
     end
     parameters = parameters or {}
 
-    self.module[self.used]:execute(index, parameters, callback)
+    modules[self.used]:execute(index, parameters, callback)
 end
